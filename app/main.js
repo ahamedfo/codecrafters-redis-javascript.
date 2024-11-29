@@ -4,7 +4,7 @@ const net = require("net");
 console.log("Logs from your program will appear here!");
 
 const server = net.createServer((connection) => {
-    connection.write('+Pong\r\n');
+    connection.write('+PONG\r\n');
 
 });
 
