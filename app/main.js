@@ -6,7 +6,19 @@ console.log("Logs from your program will appear here!");
 const server = net.createServer((connection) => {
     // Handle connection
     connection.on('data', (data) => {
+
+        const newData = data.toString().split("\r\n");
+        console.log(newData);
+
+        if(newData[2].toLowerCase() == "echo"){
+            const len = newData[4].length;
+            connection.write('$' + len + '\r\n' + newData[4] + '\r\n');
+            return;
+        }
+
         connection.write('+PONG\r\n');
+
+        
     });
 });
 
