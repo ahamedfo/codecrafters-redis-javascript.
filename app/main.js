@@ -23,7 +23,6 @@ const server = net.createServer((connection) => {
         
 
         const newData = parser(data);
-        console.log(dict)
 
         if(newData[2].toLowerCase() == "echo"){
             const len = newData[4].length;
@@ -34,6 +33,12 @@ const server = net.createServer((connection) => {
         if(newData[2].toLowerCase() == "set"){
             setter(newData[4], newData[6], dict);
             connection.write('+OK\r\n');
+            if(newData[10]){
+                setTimeout(() => {
+                    delete dict[newData[4]];
+                }, newData[10]);
+            }
+            console.log(newData[5], newData[6],newData[10]);
             return;
         }
 
