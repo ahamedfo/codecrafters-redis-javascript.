@@ -1,5 +1,10 @@
 const net = require("net");
+const fs = require('fs');
+const { join } = require('path');
+const { getKeysValues } = require('./parseRDB');
+
 const dict = {};
+let rdb;
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
 
@@ -21,6 +26,10 @@ function configFormat(key = '', value = ''){
     return `*2\r\n$${key.length}\r\n${key}\r\n$${value.length}\r\n${value}\r\n`
 }
 
+function serializeRESP(key){
+    return `*1\r\n$${key.length}\r\n${key}\r\n`
+}
+
 const server = net.createServer((connection) => {
     // Handle connection
     connection.on('data', (data) => {
@@ -31,17 +40,35 @@ const server = net.createServer((connection) => {
         const arguments = process.argv.slice(2)
         const [fileDir, dbFileName] = [arguments[1] ?? null, arguments[3] ?? null]
         const cmd = command.toLowerCase();
+        const filePath = `${fileDir}/${dbFileName}`
 
         if(fileDir && dbFileName){
             config.set('dir', fileDir)
             config.set('dbfilename', dbFileName)
         }
+
+        if(config.get('dir') && config.get('dbfilename')){
+            if(fs.existsSync(filePath)){
+                rdb = fs.readFileSync(filePath);
+                if (!rdb) {
+                    throw `Error reading the DB at provided path: ${filePath}`;
+                }
+            } else{
+                console.log(`File not found at ${filePath}`)
+            }
+        }
         
-
-
-        if(cmd === 'config'){
+        if(cmd == 'config'){
             connection.write(configFormat(value, config.get(value)))
-            return
+            return;
+        }
+
+        if (cmd == 'keys'){
+            const redisKey = getKeysValues(rdb);
+            if(redisKey){
+                connection.write(serializeRESP(redisKey));
+                return;
+            }
         }
             
         if(cmd == "echo"){
