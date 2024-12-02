@@ -2,8 +2,11 @@ const net = require("net");
 const fs = require('fs');
 const { join } = require('path');
 const { getKeysValues } = require('./parseRDB');
+const { time } = require("console");
+const dataStore = new Map();
+const expiryList = new Map();
 
-const dict = {};
+
 let rdb;
 // You can use print statements as follows for debugging, they'll be visible when running tests.
 console.log("Logs from your program will appear here!");
@@ -13,21 +16,17 @@ function parser(data){
     return buffer;
 }
 
-function setter (key, value, dict){
-    dict[key] = value;
-    return dict;
-}
-
-function getter (key, dict){
-    return dict[key];
-}
-
 function configFormat(key = '', value = ''){
     return `*2\r\n$${key.length}\r\n${key}\r\n$${value.length}\r\n${value}\r\n`
 }
 
-function serializeRESP(key){
-    return `*1\r\n$${key.length}\r\n${key}\r\n`
+function serializeRESP(key, isKey=false){
+    if (isKey) {
+        return `*1\r\n$${key.length}\r\n${key}\r\n`
+    } else {
+        return `$${key.length}\r\n${key}\r\n`
+    }
+    return 
 }
 
 const server = net.createServer((connection) => {
@@ -35,7 +34,6 @@ const server = net.createServer((connection) => {
     connection.on('data', (data) => {
         const buffer = parser(data);
         const [, , command, , key = '', ,value = '', , px=null, ,timeout = ''] = buffer;
-        const dataStore = new Map();
         const config = new Map();
         const arguments = process.argv.slice(2)
         const [fileDir, dbFileName] = [arguments[1] ?? null, arguments[3] ?? null]
@@ -52,6 +50,10 @@ const server = net.createServer((connection) => {
                 rdb = fs.readFileSync(filePath);
                 if (!rdb) {
                     throw `Error reading the DB at provided path: ${filePath}`;
+                }else {
+                    const [redisKey, redisValue] = getKeysValues(rdb);
+                    console.log('rdb', redisKey, redisValue)
+                    dataStore.set(redisKey, redisValue);
                 }
             } else{
                 console.log(`File not found at ${filePath}`)
@@ -66,7 +68,7 @@ const server = net.createServer((connection) => {
         if (cmd == 'keys'){
             const redisKey = getKeysValues(rdb);
             if(redisKey){
-                connection.write(serializeRESP(redisKey));
+                connection.write(serializeRESP(redisKey[0], true));
                 return;
             }
         }
@@ -77,20 +79,21 @@ const server = net.createServer((connection) => {
             return;
         }
 
-        if(buffer[2].toLowerCase() == "set"){
-            setter(buffer[4], buffer[6], dict);
-            connection.write('+OK\r\n');
-            if(buffer[10]){
+        if(cmd == "set"){
+            dataStore.set(key, value);
+            if(px){
                 setTimeout(() => {
-                    delete dict[buffer[4]];
-                }, buffer[10]);
+                    dataStore.delete(key);
+                }, timeout);
+                console.log(timeout)
             }
-            console.log(buffer[5], buffer[6],buffer[10]);
+            connection.write('+OK\r\n');
+            console.log(dataStore)
             return;
         }
 
-        if( buffer[2].toLowerCase() == "get"){
-            const value = getter(buffer[4], dict);
+        if( cmd == "get"){
+            const value = dataStore.get(key);
             if(value){
                 const len = value.length;
                 connection.write('$' + len + '\r\n' + value + '\r\n');

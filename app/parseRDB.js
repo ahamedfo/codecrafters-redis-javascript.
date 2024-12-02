@@ -34,6 +34,10 @@ function getKeysValues(data) {
     cursor++;
     const redisKeyLength = data[cursor];
     const redisKey = data.subarray(cursor + 1, cursor + 1 + redisKeyLength).toString();
-    return redisKey;
+    cursor += redisKeyLength + 1;
+    const redisValueLength = data[cursor];
+    const redisValue = data.subarray(cursor + 1, cursor + 1 + redisValueLength).toString();
+    return [redisKey,redisValue];
 }
+
 module.exports = {  getKeysValues };
