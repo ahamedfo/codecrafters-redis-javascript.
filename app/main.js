@@ -51,9 +51,11 @@ const server = net.createServer((connection) => {
                 if (!rdb) {
                     throw `Error reading the DB at provided path: ${filePath}`;
                 }else {
-                    const [redisKey, redisValue] = getKeysValues(rdb);
-                    console.log('rdb', redisKey, redisValue)
-                    dataStore.set(redisKey, redisValue);
+                    const redisPairs = getKeysValues(rdb);
+                    redisPairs.forEach((redisValue, redisKey) => {
+                            dataStore.set(redisKey, redisValue);
+                        }
+                    )
                 }
             } else{
                 console.log(`File not found at ${filePath}`)
@@ -66,9 +68,12 @@ const server = net.createServer((connection) => {
         }
 
         if (cmd == 'keys'){
-            const redisKey = getKeysValues(rdb);
+            const redisPairs = getKeysValues(rdb);
             if(redisKey){
-                connection.write(serializeRESP(redisKey[0], true));
+                redisPairs.forEach((redisKey, redisValue) => {
+                    connection.write(serializeRESP(redisKey, true));
+                    }
+                )
                 return;
             }
         }
