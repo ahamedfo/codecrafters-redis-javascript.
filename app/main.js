@@ -25,9 +25,6 @@ function serializeRESP(redisPairs, isKey=false){
     for(const key of redisPairs.keys()){
         resp += `$${key.length}\r\n${key}\r\n`
     }
-    //  else {
-    //     return `$${key.length}\r\n${key}\r\n`
-    // }
     return resp
 }
 
@@ -55,7 +52,12 @@ const server = net.createServer((connection) => {
                 }else {
                     const redisPairs = getKeysValues(rdb);
                     redisPairs.forEach((redisValue, redisKey) => {
-                            dataStore.set(redisKey, redisValue);
+                            console.log('this is the redis value', redisValue)
+                            if (redisValue.expiry > 0) {
+                                dataStore.set(redisKey, { value: redisValue.value, expiry: redisValue.expiry} );
+                            } else {
+                                dataStore.set(redisKey, redisValue);
+                            }
                         }
                     )
                 }
@@ -63,49 +65,73 @@ const server = net.createServer((connection) => {
                 console.log(`File not found at ${filePath}`)
             }
         }
+
+        switch(cmd){
         
-        if(cmd == 'config'){
-            connection.write(configFormat(value, config.get(value)))
-            return;
-        }
+            case 'config':
+                connection.write(configFormat(value, config.get(value)))
+                break;
+             
+            case 'keys':
+                const redisPairs = getKeysValues(rdb);
+                if(redisPairs){
+                    connection.write(serializeRESP(redisPairs, true));
+                    break;
+                }
 
-        if (cmd == 'keys'){
-            const redisPairs = getKeysValues(rdb);
-            console.log(redisPairs)
-            if(redisPairs){
-                connection.write(serializeRESP(redisPairs, true));
-                return;
-            }
-        }
-            
-        if(cmd == "echo"){
-            const len = buffer[4].length;
-            connection.write('$' + len + '\r\n' + buffer[4] + '\r\n');
-            return;
-        }
+            case 'echo':
+                const len = buffer[4].length;
+                connection.write('$' + len + '\r\n' + buffer[4] + '\r\n');
+                break;
 
-        if(cmd == "set"){
-            dataStore.set(key, value);
-            if(px){
-                setTimeout(() => {
-                    dataStore.delete(key);
-                }, timeout);
-            }
-            connection.write('+OK\r\n');
-            return;
-        }
+            case 'set':
+                dataStore.set(key, value);
+                if(px){
+                    setTimeout(() => {
+                        dataStore.delete(key);
+                    }, timeout);
+                }
+                connection.write('+OK\r\n');
+                break;
 
-        if( cmd == "get"){
-            const value = dataStore.get(key);
-            if(value){
-                const len = value.length;
-                connection.write('$' + len + '\r\n' + value + '\r\n');
-                return;
-            }
-            connection.write('$-1\r\n');
-            return;
+            case 'get':
+                const keyProperties = dataStore.get(key);
+                console.log(dataStore)
+                console.log('this is the value', value)
+                console.log('this is the key', key)
+                if(keyProperties){
+                    console.log('this is the values expiration', keyProperties.expiry)
+                    // console.log('this is the current time', Date.getTime())
+                    console.log('this is the current time', new Date().getTime())
+
+
+                    if (keyProperties.expiry && new Date().getTime() > keyProperties.expiry) {
+                        console.log('expired')
+                        dataStore.delete(key);
+                        connection.write('$-1\r\n');
+                        break;
+                    } else if (keyProperties.expiry) {
+                        console.log('not expired')
+                        const len = keyProperties.value.length;
+                        connection.write('$' + len + '\r\n' + keyProperties.value + '\r\n');
+                        break;
+                    }
+
+                    console.log('no expiration')
+
+                    const len = keyProperties.length;
+                    connection.write('$' + len + '\r\n' + keyProperties + '\r\n');
+                    break;
+                }
+                connection.write('$-1\r\n');
+                break;
+    
+            default:
+                connection.write('+PONG\r\n');
+                break;
         }
-        connection.write('+PONG\r\n');
+        
+        
     });
 });
 

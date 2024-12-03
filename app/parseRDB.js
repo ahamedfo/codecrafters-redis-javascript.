@@ -31,13 +31,16 @@ function getKeysValues(data) {
 
     //traverse the entries in a single database
     while(data[cursor] != OPCODES.EOF) {
-        console.log(cursor)
+        let expiryTime = 0;
         if (data[cursor] == OPCODES.EXPIRETIME) {
             cursor++;
+            expiryTime = Number(data.readUInt32LE(cursor));
             cursor+=4;
         } else if (data[cursor] == OPCODES.EXPIRETIMEMS) {
             cursor++;
+            expiryTime = Number(data.readBigInt64LE(cursor));
             cursor+=8;
+            
         }
         // skip 1 byte for flag 
         cursor++;
@@ -54,7 +57,11 @@ function getKeysValues(data) {
         const redisValue = data.subarray(cursor + 1, cursor + 1 + redisValueLength).toString();
         //advance past the byte that stores the value length and the value itself - this is the end of the current key value pair
         cursor += redisValueLength + 1;
-        redisPairs.set(redisKey, redisValue);
+        if (expiryTime > 0) {
+            redisPairs.set(redisKey, {value: redisValue, expiry: expiryTime});
+        } else {   
+            redisPairs.set(redisKey, redisValue);
+        }
     }
     return redisPairs;
 }
