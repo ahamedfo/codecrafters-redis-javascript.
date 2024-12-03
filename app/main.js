@@ -7,6 +7,7 @@ const dataStore = new Map();
 const expiryList = new Map();
 const portIdx = process.argv.indexOf("--port")
 const PORT = portIdx == -1 ? 6379 : process.argv[portIdx + 1]
+const isSlave = process.argv.indexOf("--replicaof") != -1 ? 'slave' : 'master';
 
 let rdb;
 // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -119,15 +120,14 @@ const server = net.createServer((connection) => {
                 break;
 
             case 'info':
-                connection.write('$11\r\nrole:master\r\n')
+                const serverType = `role:${isSlave}`
+                connection.write(`$${serverType.length}\r\n${serverType}\r\n`)
                 break;    
             
             default:
                 connection.write('+PONG\r\n');
                 break;
         }
-        
-        
     });
 });
 
