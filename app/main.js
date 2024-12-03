@@ -33,6 +33,7 @@ const server = net.createServer((connection) => {
     // Handle connection
     connection.on('data', (data) => {
         const buffer = parser(data);
+        console.log('this is the buffer', buffer)
         const [, , command, , key = '', ,value = '', , px=null, ,timeout = ''] = buffer;
         const config = new Map();
         const arguments = process.argv.slice(2)
@@ -53,7 +54,6 @@ const server = net.createServer((connection) => {
                 }else {
                     const redisPairs = getKeysValues(rdb);
                     redisPairs.forEach((redisValue, redisKey) => {
-                            console.log('this is the redis value', redisValue)
                             if (redisValue.expiry > 0) {
                                 dataStore.set(redisKey, { value: redisValue.value, expiry: redisValue.expiry} );
                             } else {
@@ -97,28 +97,19 @@ const server = net.createServer((connection) => {
 
             case 'get':
                 const keyProperties = dataStore.get(key);
-                console.log(dataStore)
-                console.log('this is the value', value)
-                console.log('this is the key', key)
                 if(keyProperties){
-                    console.log('this is the values expiration', keyProperties.expiry)
-                    // console.log('this is the current time', Date.getTime())
-                    console.log('this is the current time', new Date().getTime())
 
 
                     if (keyProperties.expiry && new Date().getTime() > keyProperties.expiry) {
-                        console.log('expired')
                         dataStore.delete(key);
                         connection.write('$-1\r\n');
                         break;
                     } else if (keyProperties.expiry) {
-                        console.log('not expired')
                         const len = keyProperties.value.length;
                         connection.write('$' + len + '\r\n' + keyProperties.value + '\r\n');
                         break;
                     }
 
-                    console.log('no expiration')
 
                     const len = keyProperties.length;
                     connection.write('$' + len + '\r\n' + keyProperties + '\r\n');
@@ -127,6 +118,10 @@ const server = net.createServer((connection) => {
                 connection.write('$-1\r\n');
                 break;
 
+            case 'info':
+                connection.write('$11\r\nrole:master\r\n')
+                break;    
+            
             default:
                 connection.write('+PONG\r\n');
                 break;
