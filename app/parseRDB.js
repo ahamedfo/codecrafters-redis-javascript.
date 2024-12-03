@@ -30,7 +30,8 @@ function getKeysValues(data) {
     [length,cursor] = handleLengthEncoding(data,cursor); // size of the expiry hash table
 
     //traverse the entries in a single database
-    while(data[cursor] != OPCODES.SELECTDB) {
+    while(data[cursor] != OPCODES.EOF) {
+        console.log(cursor)
         if (data[cursor] == OPCODES.EXPIRETIME) {
             cursor++;
             cursor+=4;

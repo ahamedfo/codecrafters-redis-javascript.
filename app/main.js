@@ -20,13 +20,15 @@ function configFormat(key = '', value = ''){
     return `*2\r\n$${key.length}\r\n${key}\r\n$${value.length}\r\n${value}\r\n`
 }
 
-function serializeRESP(key, isKey=false){
-    if (isKey) {
-        return `*1\r\n$${key.length}\r\n${key}\r\n`
-    } else {
-        return `$${key.length}\r\n${key}\r\n`
+function serializeRESP(redisPairs, isKey=false){
+    let resp = `*${redisPairs.size}\r\n`
+    for(const key of redisPairs.keys()){
+        resp += `$${key.length}\r\n${key}\r\n`
     }
-    return 
+    //  else {
+    //     return `$${key.length}\r\n${key}\r\n`
+    // }
+    return resp
 }
 
 const server = net.createServer((connection) => {
@@ -69,11 +71,9 @@ const server = net.createServer((connection) => {
 
         if (cmd == 'keys'){
             const redisPairs = getKeysValues(rdb);
-            if(redisKey){
-                redisPairs.forEach((redisKey, redisValue) => {
-                    connection.write(serializeRESP(redisKey, true));
-                    }
-                )
+            console.log(redisPairs)
+            if(redisPairs){
+                connection.write(serializeRESP(redisPairs, true));
                 return;
             }
         }
@@ -90,10 +90,8 @@ const server = net.createServer((connection) => {
                 setTimeout(() => {
                     dataStore.delete(key);
                 }, timeout);
-                console.log(timeout)
             }
             connection.write('+OK\r\n');
-            console.log(dataStore)
             return;
         }
 
